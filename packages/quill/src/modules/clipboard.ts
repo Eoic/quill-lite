@@ -196,32 +196,43 @@ class Clipboard extends Module<ClipboardOptions> {
 
   onCapturePaste(e: ClipboardEvent) {
     if (e.defaultPrevented || !this.quill.isEnabled()) return;
+
     e.preventDefault();
+
     const range = this.quill.getSelection(true);
+
     if (range == null) return;
+
     const html = e.clipboardData?.getData('text/html');
     let text = e.clipboardData?.getData('text/plain');
+
     if (!html && !text) {
       const urlList = e.clipboardData?.getData('text/uri-list');
       if (urlList) {
         text = this.normalizeURIList(urlList);
       }
     }
+
     const files = Array.from(e.clipboardData?.files || []);
+
     if (!html && files.length > 0) {
-      this.quill.uploader.upload(range, files);
+      // TODO: Emit uploader event with files.
+      // this.quill.uploader.upload(range, files);
       return;
     }
+
     if (html && files.length > 0) {
       const doc = new DOMParser().parseFromString(html, 'text/html');
       if (
         doc.body.childElementCount === 1 &&
         doc.body.firstElementChild?.tagName === 'IMG'
       ) {
-        this.quill.uploader.upload(range, files);
+        // this.quill.uploader.upload(range, files);
+        // TODO: Emit uploader event with files.
         return;
       }
     }
+
     this.onPaste(range, { html, text });
   }
 
@@ -233,13 +244,16 @@ class Clipboard extends Module<ClipboardOptions> {
   }
 
   onPaste(range: Range, { text, html }: { text?: string; html?: string }) {
-    const formats = this.quill.getFormat(range.index);
-    const pastedDelta = this.convert({ text, html }, formats);
-    debug.log('onPaste', pastedDelta, { text, html });
+    // const formats = this.quill.getFormat(range.index);
+    // const pastedDelta = this.convert({ text, html }, formats);
+    // console.log('onPaste', pastedDelta, { text, html });
+    // console.log(formats);
+
     const delta = new Delta()
       .retain(range.index)
       .delete(range.length)
-      .concat(pastedDelta);
+      // .concat(pastedDelta);
+      .insert(text);
     this.quill.updateContents(delta, Quill.sources.USER);
     // range.length contributes to delta.length()
     this.quill.setSelection(
@@ -428,6 +442,7 @@ function matchAttributor(node: HTMLElement, delta: Delta, scroll: ScrollBlot) {
   const classes = ClassAttributor.keys(node);
   const styles = StyleAttributor.keys(node);
   const formats: Record<string, string | undefined> = {};
+
   attributes
     .concat(classes)
     .concat(styles)

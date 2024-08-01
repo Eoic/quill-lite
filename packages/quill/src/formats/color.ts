@@ -5,10 +5,12 @@ class ColorAttributor extends StyleAttributor {
     let value = super.value(domNode) as string;
     if (!value.startsWith('rgb(')) return value;
     value = value.replace(/^[^\d]+/, '').replace(/[^\d]+$/, '');
+
     const hex = value
       .split(',')
       .map((component) => `00${parseInt(component, 10).toString(16)}`.slice(-2))
       .join('');
+
     return `#${hex}`;
   }
 }

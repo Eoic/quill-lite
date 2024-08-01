@@ -69,7 +69,7 @@ class SyntaxCodeBlock extends CodeBlock {
     return domNode.getAttribute('data-language') || 'plain';
   }
 
-  static register() {} // Syntax module will register
+  static register() { } // Syntax module will register
 
   format(name: string, value: unknown) {
     if (name === this.statics.blotName && value) {
@@ -236,6 +236,7 @@ class Syntax extends Module<SyntaxOptions> {
     this.quill.on(Quill.events.SCROLL_BLOT_MOUNT, (blot: Blot) => {
       if (!(blot instanceof SyntaxCodeBlockContainer)) return;
       const select = this.quill.root.ownerDocument.createElement('select');
+
       // @ts-expect-error Fix me later
       this.options.languages.forEach(({ key, label }) => {
         const option = select.ownerDocument.createElement('option');
@@ -243,11 +244,13 @@ class Syntax extends Module<SyntaxOptions> {
         option.setAttribute('value', key);
         select.appendChild(option);
       });
+
       select.addEventListener('change', () => {
         blot.format(SyntaxCodeBlock.blotName, select.value);
         this.quill.root.focus(); // Prevent scrolling
         this.highlight(blot, true);
       });
+
       if (blot.uiNode == null) {
         blot.attachUI(select);
         if (blot.children.head) {

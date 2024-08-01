@@ -10,11 +10,10 @@ class Inline extends InlineBlot {
     'cursor',
     'inline', // Must be lower
     'link', // Chrome wants <a> to be lower
+    'highlight',
     'underline',
-    'strike',
     'italic',
     'bold',
-    'script',
     'code', // Must be higher
   ];
 

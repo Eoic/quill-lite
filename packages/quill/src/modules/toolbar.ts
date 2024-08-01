@@ -29,6 +29,7 @@ class Toolbar extends Module<ToolbarProps> {
 
   constructor(quill: Quill, options: Partial<ToolbarProps>) {
     super(quill, options);
+
     if (Array.isArray(this.options.container)) {
       const container = document.createElement('div');
       container.setAttribute('role', 'toolbar');
@@ -44,9 +45,11 @@ class Toolbar extends Module<ToolbarProps> {
       debug.error('Container required for toolbar', this.options);
       return;
     }
+
     this.container.classList.add('ql-toolbar');
     this.controls = [];
     this.handlers = {};
+
     if (this.options.handlers) {
       Object.keys(this.options.handlers).forEach((format) => {
         const handler = this.options.handlers?.[format];
@@ -61,6 +64,7 @@ class Toolbar extends Module<ToolbarProps> {
         this.attach(input);
       },
     );
+
     this.quill.on(Quill.events.EDITOR_CHANGE, () => {
       const [range] = this.quill.selection.getRange(); // quill.getSelection triggers update
       this.update(range);
@@ -111,6 +115,7 @@ class Toolbar extends Module<ToolbarProps> {
       }
       this.quill.focus();
       const [range] = this.quill.selection.getRange();
+
       if (this.handlers[format] != null) {
         this.handlers[format].call(this, value);
       } else if (
@@ -138,6 +143,10 @@ class Toolbar extends Module<ToolbarProps> {
 
   update(range: Range | null) {
     const formats = range == null ? {} : this.quill.getFormat(range);
+
+    // console.log(this.controls);
+    debugger;
+
     this.controls.forEach((pair) => {
       const [format, input] = pair;
       if (input.tagName === 'SELECT') {
@@ -175,6 +184,7 @@ class Toolbar extends Module<ToolbarProps> {
         input.classList.toggle('ql-active', isActive);
         input.setAttribute('aria-pressed', isActive.toString());
       } else {
+        console.log(formats);
         const isActive = formats[format] != null;
         input.classList.toggle('ql-active', isActive);
         input.setAttribute('aria-pressed', isActive.toString());
@@ -185,6 +195,8 @@ class Toolbar extends Module<ToolbarProps> {
 Toolbar.DEFAULTS = {};
 
 function addButton(container: HTMLElement, format: string, value?: string) {
+  console.log(format, value);
+
   const input = document.createElement('button');
   input.setAttribute('type', 'button');
   input.classList.add(`ql-${format}`);

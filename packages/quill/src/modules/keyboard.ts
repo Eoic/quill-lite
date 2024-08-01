@@ -348,6 +348,7 @@ class Keyboard extends Module<KeyboardOptions> {
       .retain(range.index)
       .delete(range.length)
       .insert('\n', lineFormats);
+
     this.quill.updateContents(delta, Quill.sources.USER);
     this.quill.setSelection(range.index + 1, Quill.sources.SILENT);
     this.quill.focus();
@@ -413,224 +414,229 @@ const defaultOptions: KeyboardOptions = {
       handler(range, context) {
         if (context.format.table) return true;
         this.quill.history.cutoff();
+
         const delta = new Delta()
           .retain(range.index)
           .delete(range.length)
           .insert('\t');
+
         this.quill.updateContents(delta, Quill.sources.USER);
         this.quill.history.cutoff();
         this.quill.setSelection(range.index + 1, Quill.sources.SILENT);
         return false;
       },
     },
-    'blockquote empty enter': {
-      key: 'Enter',
-      collapsed: true,
-      format: ['blockquote'],
-      empty: true,
-      handler() {
-        this.quill.format('blockquote', false, Quill.sources.USER);
-      },
-    },
-    'list empty enter': {
-      key: 'Enter',
-      collapsed: true,
-      format: ['list'],
-      empty: true,
-      handler(range, context) {
-        const formats: Record<string, unknown> = { list: false };
-        if (context.format.indent) {
-          formats.indent = false;
-        }
-        this.quill.formatLine(
-          range.index,
-          range.length,
-          formats,
-          Quill.sources.USER,
-        );
-      },
-    },
-    'checklist enter': {
-      key: 'Enter',
-      collapsed: true,
-      format: { list: 'checked' },
-      handler(range) {
-        const [line, offset] = this.quill.getLine(range.index);
-        const formats = {
-          // @ts-expect-error Fix me later
-          ...line.formats(),
-          list: 'checked',
-        };
-        const delta = new Delta()
-          .retain(range.index)
-          .insert('\n', formats)
-          // @ts-expect-error Fix me later
-          .retain(line.length() - offset - 1)
-          .retain(1, { list: 'unchecked' });
-        this.quill.updateContents(delta, Quill.sources.USER);
-        this.quill.setSelection(range.index + 1, Quill.sources.SILENT);
-        this.quill.scrollSelectionIntoView();
-      },
-    },
-    'header enter': {
-      key: 'Enter',
-      collapsed: true,
-      format: ['header'],
-      suffix: /^$/,
-      handler(range, context) {
-        const [line, offset] = this.quill.getLine(range.index);
-        const delta = new Delta()
-          .retain(range.index)
-          .insert('\n', context.format)
-          // @ts-expect-error Fix me later
-          .retain(line.length() - offset - 1)
-          .retain(1, { header: null });
-        this.quill.updateContents(delta, Quill.sources.USER);
-        this.quill.setSelection(range.index + 1, Quill.sources.SILENT);
-        this.quill.scrollSelectionIntoView();
-      },
-    },
-    'table backspace': {
-      key: 'Backspace',
-      format: ['table'],
-      collapsed: true,
-      offset: 0,
-      handler() {},
-    },
-    'table delete': {
-      key: 'Delete',
-      format: ['table'],
-      collapsed: true,
-      suffix: /^$/,
-      handler() {},
-    },
-    'table enter': {
-      key: 'Enter',
-      shiftKey: null,
-      format: ['table'],
-      handler(range) {
-        const module = this.quill.getModule('table');
-        if (module) {
-          // @ts-expect-error
-          const [table, row, cell, offset] = module.getTable(range);
-          const shift = tableSide(table, row, cell, offset);
-          if (shift == null) return;
-          let index = table.offset();
-          if (shift < 0) {
-            const delta = new Delta().retain(index).insert('\n');
-            this.quill.updateContents(delta, Quill.sources.USER);
-            this.quill.setSelection(
-              range.index + 1,
-              range.length,
-              Quill.sources.SILENT,
-            );
-          } else if (shift > 0) {
-            index += table.length();
-            const delta = new Delta().retain(index).insert('\n');
-            this.quill.updateContents(delta, Quill.sources.USER);
-            this.quill.setSelection(index, Quill.sources.USER);
-          }
-        }
-      },
-    },
-    'table tab': {
-      key: 'Tab',
-      shiftKey: null,
-      format: ['table'],
-      handler(range, context) {
-        const { event, line: cell } = context;
-        const offset = cell.offset(this.quill.scroll);
-        if (event.shiftKey) {
-          this.quill.setSelection(offset - 1, Quill.sources.USER);
-        } else {
-          this.quill.setSelection(offset + cell.length(), Quill.sources.USER);
-        }
-      },
-    },
-    'list autofill': {
-      key: ' ',
-      shiftKey: null,
-      collapsed: true,
-      format: {
-        'code-block': false,
-        blockquote: false,
-        table: false,
-      },
-      prefix: /^\s*?(\d+\.|-|\*|\[ ?\]|\[x\])$/,
-      handler(range, context) {
-        if (this.quill.scroll.query('list') == null) return true;
-        const { length } = context.prefix;
-        const [line, offset] = this.quill.getLine(range.index);
-        if (offset > length) return true;
-        let value;
-        switch (context.prefix.trim()) {
-          case '[]':
-          case '[ ]':
-            value = 'unchecked';
-            break;
-          case '[x]':
-            value = 'checked';
-            break;
-          case '-':
-          case '*':
-            value = 'bullet';
-            break;
-          default:
-            value = 'ordered';
-        }
-        this.quill.insertText(range.index, ' ', Quill.sources.USER);
-        this.quill.history.cutoff();
-        const delta = new Delta()
-          .retain(range.index - offset)
-          .delete(length + 1)
-          // @ts-expect-error Fix me later
-          .retain(line.length() - 2 - offset)
-          .retain(1, { list: value });
-        this.quill.updateContents(delta, Quill.sources.USER);
-        this.quill.history.cutoff();
-        this.quill.setSelection(range.index - length, Quill.sources.SILENT);
-        return false;
-      },
-    },
-    'code exit': {
-      key: 'Enter',
-      collapsed: true,
-      format: ['code-block'],
-      prefix: /^$/,
-      suffix: /^\s*$/,
-      handler(range) {
-        const [line, offset] = this.quill.getLine(range.index);
-        let numLines = 2;
-        let cur = line;
-        while (
-          cur != null &&
-          cur.length() <= 1 &&
-          cur.formats()['code-block']
-        ) {
-          // @ts-expect-error
-          cur = cur.prev;
-          numLines -= 1;
-          // Requisite prev lines are empty
-          if (numLines <= 0) {
-            const delta = new Delta()
-              // @ts-expect-error Fix me later
-              .retain(range.index + line.length() - offset - 2)
-              .retain(1, { 'code-block': null })
-              .delete(1);
-            this.quill.updateContents(delta, Quill.sources.USER);
-            this.quill.setSelection(range.index - 1, Quill.sources.SILENT);
-            return false;
-          }
-        }
-        return true;
-      },
-    },
-    'embed left': makeEmbedArrowHandler('ArrowLeft', false),
-    'embed left shift': makeEmbedArrowHandler('ArrowLeft', true),
-    'embed right': makeEmbedArrowHandler('ArrowRight', false),
-    'embed right shift': makeEmbedArrowHandler('ArrowRight', true),
-    'table down': makeTableArrowHandler(false),
-    'table up': makeTableArrowHandler(true),
+    // 'blockquote empty enter': {
+    //   key: 'Enter',
+    //   collapsed: true,
+    //   format: ['blockquote'],
+    //   empty: true,
+    //   handler() {
+    //     this.quill.format('blockquote', false, Quill.sources.USER);
+    //   },
+    // },
+    // 'list empty enter': {
+    //   key: 'Enter',
+    //   collapsed: true,
+    //   format: ['list'],
+    //   empty: true,
+    //   handler(range, context) {
+    //     const formats: Record<string, unknown> = { list: false };
+    //     if (context.format.indent) {
+    //       formats.indent = false;
+    //     }
+    //     this.quill.formatLine(
+    //       range.index,
+    //       range.length,
+    //       formats,
+    //       Quill.sources.USER,
+    //     );
+    //   },
+    // },
+    // 'checklist enter': {
+    //   key: 'Enter',
+    //   collapsed: true,
+    //   format: { list: 'checked' },
+    //   handler(range) {
+    //     const [line, offset] = this.quill.getLine(range.index);
+    //     const formats = {
+    //       // @ts-expect-error Fix me later
+    //       ...line.formats(),
+    //       list: 'checked',
+    //     };
+    //     const delta = new Delta()
+    //       .retain(range.index)
+    //       .insert('\n', formats)
+    //       // @ts-expect-error Fix me later
+    //       .retain(line.length() - offset - 1)
+    //       .retain(1, { list: 'unchecked' });
+    //     this.quill.updateContents(delta, Quill.sources.USER);
+    //     this.quill.setSelection(range.index + 1, Quill.sources.SILENT);
+    //     this.quill.scrollSelectionIntoView();
+    //   },
+    // },
+    // 'header enter': {
+    //   key: 'Enter',
+    //   collapsed: true,
+    //   format: ['header'],
+    //   suffix: /^$/,
+    //   handler(range, context) {
+    //     const [line, offset] = this.quill.getLine(range.index);
+    //     const delta = new Delta()
+    //       .retain(range.index)
+    //       .insert('\n', context.format)
+    //       // @ts-expect-error Fix me later
+    //       .retain(line.length() - offset - 1)
+    //       .retain(1, { header: null });
+    //     this.quill.updateContents(delta, Quill.sources.USER);
+    //     this.quill.setSelection(range.index + 1, Quill.sources.SILENT);
+    //     this.quill.scrollSelectionIntoView();
+    //   },
+    // },
+    // 'table backspace': {
+    //   key: 'Backspace',
+    //   format: ['table'],
+    //   collapsed: true,
+    //   offset: 0,
+    //   handler() {},
+    // },
+    // 'table delete': {
+    //   key: 'Delete',
+    //   format: ['table'],
+    //   collapsed: true,
+    //   suffix: /^$/,
+    //   handler() {},
+    // },
+    // 'table enter': {
+    //   key: 'Enter',
+    //   shiftKey: null,
+    //   format: ['table'],
+    //   handler(range) {
+    //     const module = this.quill.getModule('table');
+    //     if (module) {
+    //       // @ts-expect-error
+    //       const [table, row, cell, offset] = module.getTable(range);
+    //       const shift = tableSide(table, row, cell, offset);
+    //       if (shift == null) return;
+    //       let index = table.offset();
+    //       if (shift < 0) {
+    //         const delta = new Delta().retain(index).insert('\n');
+    //         this.quill.updateContents(delta, Quill.sources.USER);
+    //         this.quill.setSelection(
+    //           range.index + 1,
+    //           range.length,
+    //           Quill.sources.SILENT,
+    //         );
+    //       } else if (shift > 0) {
+    //         index += table.length();
+    //         const delta = new Delta().retain(index).insert('\n');
+    //         this.quill.updateContents(delta, Quill.sources.USER);
+    //         this.quill.setSelection(index, Quill.sources.USER);
+    //       }
+    //     }
+    //   },
+    // },
+    // 'table tab': {
+    //   key: 'Tab',
+    //   shiftKey: null,
+    //   format: ['table'],
+    //   handler(range, context) {
+    //     const { event, line: cell } = context;
+    //     const offset = cell.offset(this.quill.scroll);
+    //     if (event.shiftKey) {
+    //       this.quill.setSelection(offset - 1, Quill.sources.USER);
+    //     } else {
+    //       this.quill.setSelection(offset + cell.length(), Quill.sources.USER);
+    //     }
+    //   },
+    // },
+    // 'list autofill': {
+    //   key: ' ',
+    //   shiftKey: null,
+    //   collapsed: true,
+    //   format: {
+    //     'code-block': false,
+    //     blockquote: false,
+    //     table: false,
+    //   },
+    //   prefix: /^\s*?(\d+\.|-|\*|\[ ?\]|\[x\])$/,
+    //   handler(range, context) {
+    //     if (this.quill.scroll.query('list') == null) return true;
+    //     const { length } = context.prefix;
+    //     const [line, offset] = this.quill.getLine(range.index);
+    //     if (offset > length) return true;
+    //     let value;
+    //     switch (context.prefix.trim()) {
+    //       case '[]':
+    //       case '[ ]':
+    //         value = 'unchecked';
+    //         break;
+    //       case '[x]':
+    //         value = 'checked';
+    //         break;
+    //       case '-':
+    //       case '*':
+    //         value = 'bullet';
+    //         break;
+    //       default:
+    //         value = 'ordered';
+    //     }
+    //     this.quill.insertText(range.index, ' ', Quill.sources.USER);
+    //     this.quill.history.cutoff();
+    //     const delta = new Delta()
+    //       .retain(range.index - offset)
+    //       .delete(length + 1)
+    //       // @ts-expect-error Fix me later
+    //       .retain(line.length() - 2 - offset)
+    //       .retain(1, { list: value });
+    //     this.quill.updateContents(delta, Quill.sources.USER);
+    //     this.quill.history.cutoff();
+    //     this.quill.setSelection(range.index - length, Quill.sources.SILENT);
+    //     return false;
+    //   },
+    // },
+    // 'code exit': {
+    //   key: 'Enter',
+    //   collapsed: true,
+    //   format: ['code-block'],
+    //   prefix: /^$/,
+    //   suffix: /^\s*$/,
+    //   handler(range) {
+    //     console.trace('code exit');
+    //     const [line, offset] = this.quill.getLine(range.index);
+    //     let numLines = 2;
+    //     let cur = line;
+
+    //     while (
+    //       cur != null &&
+    //       cur.length() <= 1 &&
+    //       cur.formats()['code-block']
+    //     ) {
+    //       // @ts-expect-error
+    //       cur = cur.prev;
+    //       numLines -= 1;
+    //       // Requisite prev lines are empty
+    //       if (numLines <= 0) {
+    //         const delta = new Delta()
+    //           // @ts-expect-error Fix me later
+    //           .retain(range.index + line.length() - offset - 2)
+    //           .retain(1, { 'code-block': null })
+    //           .delete(1);
+    //         this.quill.updateContents(delta, Quill.sources.USER);
+    //         this.quill.setSelection(range.index - 1, Quill.sources.SILENT);
+    //         return false;
+    //       }
+    //     }
+
+    //     return true;
+    //   },
+    // },
+    // 'embed left': makeEmbedArrowHandler('ArrowLeft', false),
+    // 'embed left shift': makeEmbedArrowHandler('ArrowLeft', true),
+    // 'embed right': makeEmbedArrowHandler('ArrowRight', false),
+    // 'embed right shift': makeEmbedArrowHandler('ArrowRight', true),
+    // 'table down': makeTableArrowHandler(false),
+    // 'table up': makeTableArrowHandler(true),
   },
 };
 
@@ -645,6 +651,7 @@ function makeCodeBlockHandler(indent: boolean): BindingObject {
       const CodeBlock = this.quill.scroll.query('code-block');
       // @ts-expect-error
       const { TAB } = CodeBlock;
+
       if (range.length === 0 && !event.shiftKey) {
         this.quill.insertText(range.index, TAB, Quill.sources.USER);
         this.quill.setSelection(range.index + TAB.length, Quill.sources.SILENT);
@@ -674,55 +681,56 @@ function makeCodeBlockHandler(indent: boolean): BindingObject {
           }
         }
       });
+
       this.quill.update(Quill.sources.USER);
       this.quill.setSelection(index, length, Quill.sources.SILENT);
     },
   };
 }
 
-function makeEmbedArrowHandler(
-  key: string,
-  shiftKey: boolean | null,
-): BindingObject {
-  const where = key === 'ArrowLeft' ? 'prefix' : 'suffix';
-  return {
-    key,
-    shiftKey,
-    altKey: null,
-    [where]: /^$/,
-    handler(range) {
-      let { index } = range;
-      if (key === 'ArrowRight') {
-        index += range.length + 1;
-      }
-      const [leaf] = this.quill.getLeaf(index);
-      if (!(leaf instanceof EmbedBlot)) return true;
-      if (key === 'ArrowLeft') {
-        if (shiftKey) {
-          this.quill.setSelection(
-            range.index - 1,
-            range.length + 1,
-            Quill.sources.USER,
-          );
-        } else {
-          this.quill.setSelection(range.index - 1, Quill.sources.USER);
-        }
-      } else if (shiftKey) {
-        this.quill.setSelection(
-          range.index,
-          range.length + 1,
-          Quill.sources.USER,
-        );
-      } else {
-        this.quill.setSelection(
-          range.index + range.length + 1,
-          Quill.sources.USER,
-        );
-      }
-      return false;
-    },
-  };
-}
+// function makeEmbedArrowHandler(
+//   key: string,
+//   shiftKey: boolean | null,
+// ): BindingObject {
+//   const where = key === 'ArrowLeft' ? 'prefix' : 'suffix';
+//   return {
+//     key,
+//     shiftKey,
+//     altKey: null,
+//     [where]: /^$/,
+//     handler(range) {
+//       let { index } = range;
+//       if (key === 'ArrowRight') {
+//         index += range.length + 1;
+//       }
+//       const [leaf] = this.quill.getLeaf(index);
+//       if (!(leaf instanceof EmbedBlot)) return true;
+//       if (key === 'ArrowLeft') {
+//         if (shiftKey) {
+//           this.quill.setSelection(
+//             range.index - 1,
+//             range.length + 1,
+//             Quill.sources.USER,
+//           );
+//         } else {
+//           this.quill.setSelection(range.index - 1, Quill.sources.USER);
+//         }
+//       } else if (shiftKey) {
+//         this.quill.setSelection(
+//           range.index,
+//           range.length + 1,
+//           Quill.sources.USER,
+//         );
+//       } else {
+//         this.quill.setSelection(
+//           range.index + range.length + 1,
+//           Quill.sources.USER,
+//         );
+//       }
+//       return false;
+//     },
+//   };
+// }
 
 function makeFormatHandler(format: string): BindingObject {
   return {
@@ -734,54 +742,54 @@ function makeFormatHandler(format: string): BindingObject {
   };
 }
 
-function makeTableArrowHandler(up: boolean): BindingObject {
-  return {
-    key: up ? 'ArrowUp' : 'ArrowDown',
-    collapsed: true,
-    format: ['table'],
-    handler(range, context) {
-      // TODO move to table module
-      const key = up ? 'prev' : 'next';
-      const cell = context.line;
-      const targetRow = cell.parent[key];
-      if (targetRow != null) {
-        if (targetRow.statics.blotName === 'table-row') {
-          // @ts-expect-error
-          let targetCell = targetRow.children.head;
-          let cur = cell;
-          while (cur.prev != null) {
-            // @ts-expect-error
-            cur = cur.prev;
-            targetCell = targetCell.next;
-          }
-          const index =
-            targetCell.offset(this.quill.scroll) +
-            Math.min(context.offset, targetCell.length() - 1);
-          this.quill.setSelection(index, 0, Quill.sources.USER);
-        }
-      } else {
-        // @ts-expect-error
-        const targetLine = cell.table()[key];
-        if (targetLine != null) {
-          if (up) {
-            this.quill.setSelection(
-              targetLine.offset(this.quill.scroll) + targetLine.length() - 1,
-              0,
-              Quill.sources.USER,
-            );
-          } else {
-            this.quill.setSelection(
-              targetLine.offset(this.quill.scroll),
-              0,
-              Quill.sources.USER,
-            );
-          }
-        }
-      }
-      return false;
-    },
-  };
-}
+// function makeTableArrowHandler(up: boolean): BindingObject {
+//   return {
+//     key: up ? 'ArrowUp' : 'ArrowDown',
+//     collapsed: true,
+//     format: ['table'],
+//     handler(range, context) {
+//       // TODO move to table module
+//       const key = up ? 'prev' : 'next';
+//       const cell = context.line;
+//       const targetRow = cell.parent[key];
+//       if (targetRow != null) {
+//         if (targetRow.statics.blotName === 'table-row') {
+//           // @ts-expect-error
+//           let targetCell = targetRow.children.head;
+//           let cur = cell;
+//           while (cur.prev != null) {
+//             // @ts-expect-error
+//             cur = cur.prev;
+//             targetCell = targetCell.next;
+//           }
+//           const index =
+//             targetCell.offset(this.quill.scroll) +
+//             Math.min(context.offset, targetCell.length() - 1);
+//           this.quill.setSelection(index, 0, Quill.sources.USER);
+//         }
+//       } else {
+//         // @ts-expect-error
+//         const targetLine = cell.table()[key];
+//         if (targetLine != null) {
+//           if (up) {
+//             this.quill.setSelection(
+//               targetLine.offset(this.quill.scroll) + targetLine.length() - 1,
+//               0,
+//               Quill.sources.USER,
+//             );
+//           } else {
+//             this.quill.setSelection(
+//               targetLine.offset(this.quill.scroll),
+//               0,
+//               Quill.sources.USER,
+//             );
+//           }
+//         }
+//       }
+//       return false;
+//     },
+//   };
+// }
 
 function normalize(binding: Binding): BindingObject | null {
   if (typeof binding === 'string' || typeof binding === 'number') {
@@ -814,20 +822,20 @@ function deleteRange({ quill, range }: { quill: Quill; range: Range }) {
   quill.setSelection(range.index, Quill.sources.SILENT);
 }
 
-function tableSide(_table: unknown, row: Blot, cell: Blot, offset: number) {
-  if (row.prev == null && row.next == null) {
-    if (cell.prev == null && cell.next == null) {
-      return offset === 0 ? -1 : 1;
-    }
-    return cell.prev == null ? -1 : 1;
-  }
-  if (row.prev == null) {
-    return -1;
-  }
-  if (row.next == null) {
-    return 1;
-  }
-  return null;
-}
+// function tableSide(_table: unknown, row: Blot, cell: Blot, offset: number) {
+//   if (row.prev == null && row.next == null) {
+//     if (cell.prev == null && cell.next == null) {
+//       return offset === 0 ? -1 : 1;
+//     }
+//     return cell.prev == null ? -1 : 1;
+//   }
+//   if (row.prev == null) {
+//     return -1;
+//   }
+//   if (row.next == null) {
+//     return 1;
+//   }
+//   return null;
+// }
 
 export { Keyboard as default, SHORTKEY, normalize, deleteRange };

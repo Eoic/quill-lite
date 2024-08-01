@@ -24,6 +24,7 @@ import type { ThemeConstructor } from './theme.js';
 import scrollRectIntoView from './utils/scrollRectIntoView.js';
 import type { Rect } from './utils/scrollRectIntoView.js';
 import createRegistryWithFormats from './utils/createRegistryWithFormats.js';
+import { CodeBlock } from '../modules/syntax.js';
 
 const debug = logger('quill');
 
@@ -77,10 +78,28 @@ class Quill {
   static DEFAULTS = {
     bounds: null,
     modules: {
+      // clipboard: {
+      //   matchers: [
+      //     [
+      //       Node.ELEMENT_NODE,
+      //       function (_node: any, delta: Delta) {
+      //         return delta.compose(
+      //           new Delta().retain(delta.length(), {
+      //             color: false,
+      //             background: false,
+      //             bold: false,
+      //             strike: false,
+      //             underline: false,
+      //           }),
+      //         );
+      //       },
+      //     ],
+      //   ],
+      // },
       clipboard: true,
       keyboard: true,
       history: true,
-      uploader: true,
+      uploader: false,
     },
     placeholder: '',
     readOnly: false,
@@ -262,6 +281,39 @@ class Quill {
         Quill.sources.USER,
       );
     });
+
+    this.root.addEventListener('click', (event) => {
+      if (event.target !== this.root) return;
+
+      const lineIndex = this.getSelection(true)?.index ?? 0;
+
+      if (
+        !Object.prototype.hasOwnProperty.call(
+          this.getFormat(lineIndex),
+          'code-block',
+        )
+      )
+        return;
+
+      let newlineIndex = null;
+      const [line, _offset] = this.getLine(lineIndex);
+
+      if (line && line instanceof CodeBlock && !this.getSelection()?.length) {
+        if (line.domNode.getBoundingClientRect().y < event.clientY) {
+          newlineIndex = this.getLength();
+        } else {
+          newlineIndex = 0;
+        }
+      }
+
+      if (newlineIndex !== null) {
+        const delta = new Delta().retain(newlineIndex).insert('\n');
+
+        this.updateContents(delta);
+        this.setSelection(newlineIndex);
+      }
+    });
+
     if (html) {
       const contents = this.clipboard.convert({
         html: `${html}<p><br></p>`,

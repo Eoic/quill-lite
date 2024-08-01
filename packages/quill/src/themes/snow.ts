@@ -29,6 +29,7 @@ class SnowTooltip extends BaseTooltip {
 
   listen() {
     super.listen();
+
     // @ts-expect-error Fix me later
     this.root
       .querySelector('a.ql-action')
@@ -41,6 +42,7 @@ class SnowTooltip extends BaseTooltip {
         }
         event.preventDefault();
       });
+
     // @ts-expect-error Fix me later
     this.root
       .querySelector('a.ql-remove')
@@ -54,6 +56,7 @@ class SnowTooltip extends BaseTooltip {
         event.preventDefault();
         this.hide();
       });
+
     this.quill.on(
       Emitter.events.SELECTION_CHANGE,
       (range, oldRange, source) => {
